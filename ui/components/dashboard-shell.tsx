@@ -3,13 +3,14 @@
 import {
   Activity,
   BarChart2,
+  BookLock,
   BookOpen,
   Bot,
   Brain,
   Clock,
   Cpu,
   Eye,
-  FlaskConical,
+  FileText,
   GraduationCap,
   KeyRound,
   LayoutDashboard,
@@ -17,6 +18,7 @@ import {
   Menu,
   MessageSquareIcon,
   Network,
+  Route,
   ScrollText,
   Server,
   Settings,
@@ -24,6 +26,8 @@ import {
   Shield,
   SlidersHorizontal,
   SparklesIcon,
+  TrendingUp,
+  Users,
   Wrench,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -81,7 +85,7 @@ export function DashboardShell({
         items: [
           { href: "/memory", icon: Brain, label: "Memory" },
           { href: "/skills", icon: Settings2, label: "Skills" },
-          { href: "/learning", icon: FlaskConical, label: "Learning" },
+          { href: "/learning", icon: GraduationCap, label: "Learning" },
         ],
       },
       ...(synapseUrl
@@ -100,13 +104,12 @@ export function DashboardShell({
           ]
         : []),
       {
-        label: "System",
+        label: "Admin",
         items: [
-          { href: "/admin", icon: Shield, label: "Admin", adminOnly: true },
           {
-            href: "/admin/trajectories",
-            icon: GraduationCap,
-            label: "Trajectories",
+            href: "/admin",
+            icon: Users,
+            label: "Users",
             adminOnly: true,
           },
           {
@@ -128,17 +131,16 @@ export function DashboardShell({
             adminOnly: true,
           },
           {
-            href: "/admin/diagnostics",
-            icon: Wrench,
-            label: "Diagnostics",
-            adminOnly: true,
-          },
-          {
             href: "/admin/wiki",
-            icon: BookOpen,
-            label: "Wiki",
+            icon: BookLock,
+            label: "Wiki Admin",
             adminOnly: true,
           },
+        ],
+      },
+      {
+        label: "System",
+        items: [
           {
             href: "/admin/settings",
             icon: SlidersHorizontal,
@@ -146,8 +148,14 @@ export function DashboardShell({
             adminOnly: true,
           },
           {
+            href: "/admin/diagnostics",
+            icon: Wrench,
+            label: "Diagnostics",
+            adminOnly: true,
+          },
+          {
             href: "/admin/traces",
-            icon: Activity,
+            icon: Route,
             label: "Traces",
             adminOnly: true,
           },
@@ -159,12 +167,22 @@ export function DashboardShell({
           },
           {
             href: "/admin/improvement",
-            icon: FlaskConical,
+            icon: TrendingUp,
             label: "Improvement",
             adminOnly: true,
           },
+          {
+            href: "/admin/trajectories",
+            icon: Shield,
+            label: "Trajectories",
+            adminOnly: true,
+          },
+        ],
+      },
+      {
+        items: [
           { href: "/settings", icon: Settings, label: "Settings" },
-          { href: "/changelog", icon: ScrollText, label: "Changelog" },
+          { href: "/changelog", icon: FileText, label: "Changelog" },
         ],
       },
     ],

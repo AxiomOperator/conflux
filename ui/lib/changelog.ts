@@ -22,6 +22,30 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.35.15",
+    date: "2026-05-25",
+    title: "Sidebar Reorganization",
+    summary:
+      "Reorganized the left navigation into logical sections — Admin for user/integration management, System for ops and observability, and a clean bottom strip for personal Settings and Changelog.",
+    entries: [
+      {
+        category: "improvement",
+        description:
+          "Split the bloated System section into dedicated Admin and System groups",
+      },
+      {
+        category: "improvement",
+        description:
+          "Moved Settings and Changelog out of the admin section into their own bottom group",
+      },
+      {
+        category: "fixed",
+        description:
+          "Resolved duplicate Activity, FlaskConical, and ScrollText icons across nav items",
+      },
+    ],
+  },
+  {
     version: "0.35.14",
     date: "2026-05-25",
     title: "Admin Backup & Restore",
