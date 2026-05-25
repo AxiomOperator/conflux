@@ -22,18 +22,45 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.35.14",
+    date: "2026-05-25",
+    title: "Admin Backup & Restore",
+    summary:
+      "Admins can now create a full configuration backup (JSON download) and restore from a previous backup — ideal for pre-upgrade snapshots.",
+    entries: [
+      {
+        category: "feature",
+        description:
+          "Create Backup button on the System Settings page downloads a JSON file with all settings, providers, agents, skills, users, scheduled tasks, and more",
+      },
+      {
+        category: "feature",
+        description:
+          "Restore from Backup uploads a JSON backup file and upserts all configuration records, with a summary of rows restored per table",
+      },
+      {
+        category: "improvement",
+        description:
+          "Provider registry now auto-refreshes after any provider or model CRUD operation, preventing stale degraded status in diagnostics",
+      },
+    ],
+  },
+  {
     version: "0.35.13",
     date: "2026-05-25",
     title: "Stale Registry Fix",
-    summary: "Provider registry now refreshes automatically after any create/update/delete operation, eliminating 'Degraded - Missing default model' ghost entries.",
+    summary:
+      "Provider registry now refreshes automatically after any create/update/delete operation, eliminating 'Degraded - Missing default model' ghost entries.",
     entries: [
       {
         category: "fixed",
-        description: "Registry refresh scheduled as background task after provider and model CRUD — deleted providers no longer persist as stale degraded entries",
+        description:
+          "Registry refresh scheduled as background task after provider and model CRUD — deleted providers no longer persist as stale degraded entries",
       },
       {
         category: "fixed",
-        description: "Diagnostics page now shows 'OK' for all services when providers are correctly configured",
+        description:
+          "Diagnostics page now shows 'OK' for all services when providers are correctly configured",
       },
     ],
   },
@@ -41,15 +68,18 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: "0.35.12",
     date: "2026-05-25",
     title: "Provider Edit 500 Fix",
-    summary: "Fixed PATCH /v1/providers 500 error by routing provider edits through the Next.js proxy (internal secret auth) instead of directly to FastAPI with the Azure AD Bearer token.",
+    summary:
+      "Fixed PATCH /v1/providers 500 error by routing provider edits through the Next.js proxy (internal secret auth) instead of directly to FastAPI with the Azure AD Bearer token.",
     entries: [
       {
         category: "fixed",
-        description: "Provider edit dialog now routes PATCH through /api/providers/[id] proxy route, eliminating the Azure AD JWT validation 500 error",
+        description:
+          "Provider edit dialog now routes PATCH through /api/providers/[id] proxy route, eliminating the Azure AD JWT validation 500 error",
       },
       {
         category: "improvement",
-        description: "FastAPI update_provider route now includes try/except with explicit db.flush() and structured error logging",
+        description:
+          "FastAPI update_provider route now includes try/except with explicit db.flush() and structured error logging",
       },
     ],
   },
@@ -57,19 +87,23 @@ export const CHANGELOG: ChangelogRelease[] = [
     version: "0.35.11",
     date: "2026-05-25",
     title: "Provider Edit & Delete",
-    summary: "Providers can now be edited (base URL, API key, enabled toggle) and deleted directly from the Providers page.",
+    summary:
+      "Providers can now be edited (base URL, API key, enabled toggle) and deleted directly from the Providers page.",
     entries: [
       {
         category: "feature",
-        description: "Edit button on each provider card opens a dialog to update base URL, API key, and enabled status",
+        description:
+          "Edit button on each provider card opens a dialog to update base URL, API key, and enabled status",
       },
       {
         category: "feature",
-        description: "PATCH /api/providers/[id] Next.js proxy route and PATCH /v1/providers/{id} FastAPI backend already supported; now fully wired to the UI",
+        description:
+          "PATCH /api/providers/[id] Next.js proxy route and PATCH /v1/providers/{id} FastAPI backend already supported; now fully wired to the UI",
       },
       {
         category: "improvement",
-        description: "Delete button relocated next to Edit button for consistent action grouping per provider card",
+        description:
+          "Delete button relocated next to Edit button for consistent action grouping per provider card",
       },
     ],
   },
