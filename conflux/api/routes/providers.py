@@ -94,13 +94,23 @@ async def get_provider(provider_id: UUID, db: DB, user: CurrentUser):
 
 @router.patch('/{provider_id}')
 async def update_provider(provider_id: UUID, body: ProviderUpdate, db: DB, user: AdminUser):
-    result = await db.execute(select(Provider).where(Provider.id == provider_id))
-    provider = result.scalar_one_or_none()
-    if not provider:
-        raise HTTPException(404, 'Provider not found')
-    for field, value in body.model_dump(exclude_none=True).items():
-        setattr(provider, field, value)
-    return {'id': str(provider.id), 'updated': True}
+    try:
+        result = await db.execute(select(Provider).where(Provider.id == provider_id))
+        provider = result.scalar_one_or_none()
+        if not provider:
+            raise HTTPException(404, 'Provider not found')
+        updates = body.model_dump(exclude_none=True)
+        if not updates:
+            raise HTTPException(400, 'No fields to update')
+        for field, value in updates.items():
+            setattr(provider, field, value)
+        await db.flush()
+        return {'id': str(provider.id), 'updated': True}
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error('update_provider_failed', provider_id=str(provider_id), error=str(exc))
+        raise HTTPException(500, f'Failed to update provider: {exc}') from exc
 
 
 @router.post('/{provider_id}/health-check')

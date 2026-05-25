@@ -177,15 +177,23 @@ export function ProvidersPage({
   }
 
   async function handleEditSave() {
-    if (!editProvider?.id || !session?.accessToken) return;
+    if (!editProvider?.id) return;
     setEditSaving(true);
     setEditError(null);
     try {
-      await createApiClient(session.accessToken).providers.update(editProvider.id, {
-        base_url: editForm.base_url.trim() || undefined,
-        api_key: editForm.api_key || undefined,
-        is_enabled: editForm.is_enabled,
+      const body: Record<string, unknown> = { is_enabled: editForm.is_enabled };
+      if (editForm.base_url.trim()) body.base_url = editForm.base_url.trim();
+      if (editForm.api_key) body.api_key = editForm.api_key;
+
+      const res = await fetch(`/api/providers/${editProvider.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
       });
+      if (!res.ok) {
+        const err = (await res.json().catch(() => ({}))) as { detail?: string };
+        throw new Error(err.detail ?? `HTTP ${res.status}`);
+      }
       setEditProvider(null);
       router.refresh();
     } catch (err) {

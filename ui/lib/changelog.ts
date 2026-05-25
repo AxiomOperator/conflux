@@ -22,6 +22,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.35.12",
+    date: "2026-05-25",
+    title: "Provider Edit 500 Fix",
+    summary: "Fixed PATCH /v1/providers 500 error by routing provider edits through the Next.js proxy (internal secret auth) instead of directly to FastAPI with the Azure AD Bearer token.",
+    entries: [
+      {
+        category: "fixed",
+        description: "Provider edit dialog now routes PATCH through /api/providers/[id] proxy route, eliminating the Azure AD JWT validation 500 error",
+      },
+      {
+        category: "improvement",
+        description: "FastAPI update_provider route now includes try/except with explicit db.flush() and structured error logging",
+      },
+    ],
+  },
+  {
     version: "0.35.11",
     date: "2026-05-25",
     title: "Provider Edit & Delete",
