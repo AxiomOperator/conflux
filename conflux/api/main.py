@@ -1,10 +1,12 @@
 """FastAPI application factory."""
 import asyncio
+import traceback
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from conflux.api.middleware.trace import RequestTraceMiddleware
 from conflux.api.routes.events import router as events_router
@@ -207,6 +209,24 @@ def create_app() -> FastAPI:
     app.include_router(wiki_search_routes.router)
     app.include_router(events_router)
     app.include_router(compat.router, prefix="/v1", tags=["openai-compat"])
+
+    @app.exception_handler(Exception)
+    async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+        """Catch-all handler: log the full traceback and return a structured error body."""
+        error_type = type(exc).__name__
+        error_msg = str(exc)
+        logger.error(
+            "unhandled_exception",
+            method=request.method,
+            path=request.url.path,
+            error_type=error_type,
+            error=error_msg,
+            traceback=traceback.format_exc(),
+        )
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"{error_type}: {error_msg}", "error": "internal_server_error"},
+        )
 
     @app.get('/health')
     async def health_check():

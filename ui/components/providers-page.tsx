@@ -72,11 +72,12 @@ export function ProvidersPage({
   async function loadProviderModels(providerId: string) {
     if (!session?.accessToken) return;
     setLoadingModelsId(providerId);
+    setModelError(null);
     try {
       const models = await createApiClient(session.accessToken).providers.listRegisteredModels(providerId);
       setProviderModels((prev) => ({ ...prev, [providerId]: models }));
-    } catch {
-      // ignore
+    } catch (err) {
+      setModelError(err instanceof Error ? err.message : "Failed to load registered models.");
     } finally {
       setLoadingModelsId(null);
     }

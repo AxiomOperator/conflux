@@ -5,10 +5,15 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, update
+from sqlalchemy.exc import IntegrityError
+
+import structlog
 
 from conflux.api.auth import AdminUser, CurrentUser
 from conflux.api.deps import DB
 from conflux.models.provider import Provider, ProviderModel
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter()
 
@@ -187,7 +192,11 @@ async def add_provider_model(
         output_cost_per_1k=body.output_cost_per_1k,
     )
     db.add(model)
-    await db.flush()
+    try:
+        await db.flush()
+    except IntegrityError:
+        await db.rollback()
+        raise HTTPException(409, f"Model '{body.model_name}' is already registered for this provider.")
     return {
         'id': str(model.id),
         'model_name': model.model_name,
@@ -219,23 +228,32 @@ async def remove_provider_model(
 @router.get('/{provider_id}/registered-models')
 async def list_registered_models(provider_id: UUID, db: DB, user: CurrentUser):
     """List models that have been manually registered in the database for this provider."""
-    result = await db.execute(
-        select(ProviderModel)
-        .where(ProviderModel.provider_id == provider_id)
-        .order_by(ProviderModel.model_name)
-    )
-    models = result.scalars().all()
-    return {
-        'models': [
-            {
-                'id': str(m.id),
-                'model_name': m.model_name,
-                'display_name': m.display_name,
-                'context_length': m.context_length,
-                'input_cost_per_1k': m.input_cost_per_1k,
-                'output_cost_per_1k': m.output_cost_per_1k,
-                'created_at': m.created_at.isoformat() if m.created_at else None,
-            }
-            for m in models
-        ]
-    }
+    try:
+        provider_row = (await db.execute(select(Provider).where(Provider.id == provider_id))).scalar_one_or_none()
+        if not provider_row:
+            raise HTTPException(404, 'Provider not found')
+        result = await db.execute(
+            select(ProviderModel)
+            .where(ProviderModel.provider_id == provider_id)
+            .order_by(ProviderModel.model_name)
+        )
+        models = result.scalars().all()
+        return {
+            'models': [
+                {
+                    'id': str(m.id),
+                    'model_name': m.model_name,
+                    'display_name': m.display_name,
+                    'context_length': m.context_length,
+                    'input_cost_per_1k': m.input_cost_per_1k,
+                    'output_cost_per_1k': m.output_cost_per_1k,
+                    'created_at': m.created_at.isoformat() if m.created_at else None,
+                }
+                for m in models
+            ]
+        }
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("list_registered_models_error", provider_id=str(provider_id), error=str(exc))
+        raise HTTPException(500, f"Failed to list registered models: {exc}") from exc

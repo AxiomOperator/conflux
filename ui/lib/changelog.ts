@@ -22,7 +22,35 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: "0.35.9",
+    version: "0.35.10",
+    date: "2026-05-25",
+    title: "Structured Error Handling",
+    summary:
+      "All unhandled exceptions now return structured JSON with a meaningful message instead of a bare 500.",
+    entries: [
+      {
+        category: "feature",
+        description:
+          "Global FastAPI exception handler: catches all unhandled errors, logs them with full traceback, returns {detail, error} JSON",
+      },
+      {
+        category: "fix",
+        description:
+          "GET /providers/{id}/registered-models: wrapped in try/except with 404 provider check and structured 500 on DB errors",
+      },
+      {
+        category: "fix",
+        description:
+          "POST /providers/{id}/models: catches IntegrityError on duplicate model_name and returns 409 Conflict with a clear message",
+      },
+      {
+        category: "fix",
+        description:
+          "Providers UI: load-models errors are now surfaced to the user instead of silently ignored",
+      },
+    ],
+  },
+  {
     date: "2026-05-25",
     title: "First-User Admin Bootstrap",
     summary:
