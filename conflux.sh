@@ -271,6 +271,109 @@ cmd_build() {
     echo
 }
 
+# ── Docker commands ───────────────────────────────────────────────────────────
+# App services that get rebuilt (infrastructure services are excluded)
+DOCKER_APP_SERVICES="conflux-api conflux-ui conflux-worker"
+
+cmd_docker() {
+    local subcmd="${1:-help}"
+    local svc="${2:-all}"
+    shift 2 2>/dev/null || true
+
+    case "$subcmd" in
+        build)
+            echo -e "\n${YELLOW}⚙  Building Docker images${NC}"
+            local targets
+            case "$svc" in
+                api)    targets="conflux-api" ;;
+                ui)
+                    build_ui || exit 1
+                    targets="conflux-ui"
+                    ;;
+                worker) targets="conflux-worker" ;;
+                all)
+                    build_ui || exit 1
+                    targets="$DOCKER_APP_SERVICES"
+                    ;;
+                *)  usage; exit 1 ;;
+            esac
+            docker compose build $targets
+            ok "Docker images built"
+            ;;
+
+        up)
+            echo -e "\n${GREEN}▶ Deploying Docker containers${NC}"
+            local targets
+            case "$svc" in
+                api)    targets="conflux-api" ;;
+                ui)     targets="conflux-ui" ;;
+                worker) targets="conflux-worker" ;;
+                all)    targets="$DOCKER_APP_SERVICES" ;;
+                *)  usage; exit 1 ;;
+            esac
+            docker compose up -d --force-recreate $targets
+            ok "Containers deployed"
+            ;;
+
+        redeploy)
+            echo -e "\n${GREEN}⚡ Docker rebuild & redeploy${NC}"
+            case "$svc" in
+                api)
+                    echo -e "  Services: conflux-api"
+                    docker compose build conflux-api || exit 1
+                    docker compose up -d --force-recreate conflux-api
+                    ;;
+                ui)
+                    echo -e "  Services: conflux-ui"
+                    build_ui || exit 1
+                    docker compose build conflux-ui || exit 1
+                    docker compose up -d --force-recreate conflux-ui
+                    ;;
+                worker)
+                    echo -e "  Services: conflux-worker"
+                    docker compose build conflux-worker || exit 1
+                    docker compose up -d --force-recreate conflux-worker
+                    ;;
+                all)
+                    echo -e "  Services: $DOCKER_APP_SERVICES"
+                    build_ui || exit 1
+                    docker compose build $DOCKER_APP_SERVICES || exit 1
+                    docker compose up -d --force-recreate $DOCKER_APP_SERVICES
+                    ;;
+                *)  usage; exit 1 ;;
+            esac
+            echo -e "\n  ${YELLOW}Container status:${NC}"
+            docker compose ps --format "table {{.Name}}\t{{.Status}}" | grep -E "conflux-(api|ui|worker)|NAME"
+            echo
+            ok "Redeploy complete"
+            ;;
+
+        status)
+            echo -e "\n${YELLOW}● Docker Container Status${NC}"
+            docker compose ps --format "table {{.Name}}\t{{.Status}}\t{{.Ports}}"
+            echo
+            ;;
+
+        logs)
+            local target="${svc:-conflux-api}"
+            docker compose logs -f --tail=100 "$target"
+            ;;
+
+        help|*)
+            echo "Usage: $0 docker {build|up|redeploy|status|logs} [api|ui|worker|all]"
+            echo
+            echo "  $0 docker redeploy        — build UI + Docker images, recreate all app containers"
+            echo "  $0 docker redeploy api    — rebuild & restart conflux-api only"
+            echo "  $0 docker redeploy ui     — build UI, rebuild & restart conflux-ui only"
+            echo "  $0 docker redeploy worker — rebuild & restart conflux-worker only"
+            echo "  $0 docker build           — build Docker images (runs bun build for ui)"
+            echo "  $0 docker up              — recreate app containers from existing images"
+            echo "  $0 docker status          — show all container statuses"
+            echo "  $0 docker logs [service]  — tail logs for a container (default: conflux-api)"
+            ;;
+    esac
+}
+
 cmd_redeploy() {
     local svc="${1:-all}"
     echo -e "\n${GREEN}⚡ Rebuild & redeploy Conflux${NC}"
@@ -326,8 +429,16 @@ cmd_redeploy() {
 }
 
 usage() {
-    echo "Usage: $0 {start|stop|restart|build|redeploy|status|logs} [api|worker|ui|synapse|all]"
+    echo "Usage: $0 {start|stop|restart|build|redeploy|docker|status|logs} [service]"
     echo
+    echo "  Docker commands (containers):"
+    echo "  $0 docker redeploy        — build UI + Docker images, recreate all app containers"
+    echo "  $0 docker redeploy ui     — build & restart conflux-ui only"
+    echo "  $0 docker redeploy api    — rebuild & restart conflux-api only"
+    echo "  $0 docker status          — show container statuses"
+    echo "  $0 docker logs [service]  — tail container logs"
+    echo
+    echo "  Process commands (bare-metal dev):"
     echo "  $0 start                 — start all services (dev mode)"
     echo "  $0 start api             — start API only"
     echo "  $0 start synapse         — start Synapse only"
@@ -341,10 +452,8 @@ usage() {
     echo "  $0 redeploy ui           — build & restart UI only"
     echo "  $0 redeploy synapse      — build & restart Synapse only"
     echo "  $0 status                — show service status"
-    echo "  $0 status synapse        — show Synapse status"
     echo "  $0 logs                  — tail all logs"
     echo "  $0 logs ui               — tail UI log only"
-    echo "  $0 logs synapse          — tail Synapse log only"
     echo "  $0 logs build            — tail last UI build log"
 }
 
@@ -355,6 +464,7 @@ case "${1:-}" in
     restart)  cmd_restart  "${2:-all}" "${3:-dev}" ;;
     build)    cmd_build    "${2:-all}" ;;
     redeploy) cmd_redeploy "${2:-all}" ;;
+    docker)   cmd_docker   "${2:-help}" "${3:-all}" ;;
     status)   cmd_status   "${2:-all}" ;;
     logs)     cmd_logs     "${2:-all}" ;;
     *)        usage; exit 1 ;;

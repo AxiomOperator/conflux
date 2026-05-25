@@ -1,13 +1,17 @@
 """Backup and restore routes for configuration data."""
 from __future__ import annotations
 
+import io
 import json
+import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 from uuid import UUID
 
+import asyncpg
+import httpx
 import structlog
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -16,6 +20,7 @@ from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 
 from conflux.api.auth import AdminUser
 from conflux.api.deps import DB
+from conflux.core.config import get_settings
 from conflux.models.agent import Agent
 from conflux.models.mcp import McpServer
 from conflux.models.provider import Provider, ProviderModel
@@ -406,9 +411,348 @@ async def _restore_skill_active_versions(db: DB, rows: list[dict[str, Any]]) -> 
         )
 
 
+# ── Full Backup (PostgreSQL + Qdrant + Config) ────────────────────────────────
+
+def _pg_url(database_url: str) -> str:
+    """Convert SQLAlchemy asyncpg URL to a plain asyncpg URL."""
+    return (
+        database_url
+        .replace('postgresql+asyncpg://', 'postgresql://')
+        .replace('postgresql+psycopg2://', 'postgresql://')
+    )
+
+
+def _full_json_default(obj: Any) -> Any:
+    if isinstance(obj, UUID):
+        return str(obj)
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    if isinstance(obj, Decimal):
+        return float(obj)
+    if isinstance(obj, (bytes, bytearray, memoryview)):
+        return obj.hex() if isinstance(obj, (bytes, bytearray)) else bytes(obj).hex()
+    if hasattr(obj, 'isoformat'):
+        return obj.isoformat()
+    try:
+        return str(obj)
+    except Exception:
+        raise TypeError(f'Not serializable: {type(obj)}') from None
+
+
+async def _dump_postgres_tables(database_url: str) -> dict[str, list[dict[str, Any]]]:
+    conn = await asyncpg.connect(_pg_url(database_url))
+    try:
+        table_rows = await conn.fetch(
+            "SELECT tablename FROM pg_catalog.pg_tables "
+            "WHERE schemaname='public' AND tablename != 'alembic_version' "
+            "ORDER BY tablename"
+        )
+        result: dict[str, list[dict[str, Any]]] = {}
+        for row in table_rows:
+            table = row['tablename']
+            try:
+                rows = await conn.fetch(f'SELECT * FROM "{table}"')
+                result[table] = [dict(r) for r in rows]
+            except Exception as exc:
+                logger.warning('pg_dump_table_failed', table=table, error=str(exc))
+                result[table] = []
+        return result
+    finally:
+        await conn.close()
+
+
+async def _restore_postgres_table(
+    conn: asyncpg.Connection,
+    table: str,
+    rows: list[dict[str, Any]],
+) -> int:
+    if not rows:
+        return 0
+
+    col_info = await conn.fetch(
+        'SELECT column_name, data_type, udt_name '
+        'FROM information_schema.columns '
+        "WHERE table_schema='public' AND table_name=$1 "
+        'ORDER BY ordinal_position',
+        table,
+    )
+    if not col_info:
+        return 0
+
+    pk_info = await conn.fetch(
+        'SELECT kcu.column_name '
+        'FROM information_schema.table_constraints tc '
+        'JOIN information_schema.key_column_usage kcu '
+        '    ON tc.constraint_name = kcu.constraint_name '
+        '    AND tc.table_schema = kcu.table_schema '
+        "WHERE tc.constraint_type = 'PRIMARY KEY' "
+        "AND tc.table_schema = 'public' AND tc.table_name = $1 "
+        'ORDER BY kcu.ordinal_position',
+        table,
+    )
+    pk_set = {r['column_name'] for r in pk_info}
+
+    all_cols = {r['column_name']: (r['data_type'], r['udt_name']) for r in col_info}
+    available = set(rows[0].keys())
+    cols = [c for c in all_cols if c in available]
+    if not cols:
+        return 0
+
+    def cast_placeholder(col: str, idx: int) -> str:
+        data_type, udt_name = all_cols[col]
+        if udt_name == 'uuid':
+            return f'${idx}::uuid'
+        if data_type in ('jsonb', 'json') or udt_name in ('jsonb', 'json'):
+            return f'${idx}::jsonb'
+        if 'timestamp' in data_type:
+            return f'${idx}::timestamptz'
+        if udt_name == 'inet':
+            return f'${idx}::inet'
+        return f'${idx}'
+
+    cols_sql = ', '.join(f'"{c}"' for c in cols)
+    vals_sql = ', '.join(cast_placeholder(c, i + 1) for i, c in enumerate(cols))
+    pk_in_cols = [c for c in pk_set if c in cols]
+    non_pk_cols = [c for c in cols if c not in pk_set]
+
+    if pk_in_cols and non_pk_cols:
+        conflict_sql = (
+            f'ON CONFLICT ({", ".join(pk_in_cols)}) DO UPDATE SET '
+            + ', '.join(f'"{c}" = EXCLUDED."{c}"' for c in non_pk_cols)
+        )
+    elif pk_in_cols:
+        conflict_sql = f'ON CONFLICT ({", ".join(pk_in_cols)}) DO NOTHING'
+    else:
+        conflict_sql = ''
+
+    sql = f'INSERT INTO "{table}" ({cols_sql}) VALUES ({vals_sql}) {conflict_sql}'
+
+    def coerce(col: str, val: Any) -> Any:
+        if val is None:
+            return None
+        data_type, udt_name = all_cols[col]
+        if data_type in ('jsonb', 'json') or udt_name in ('jsonb', 'json'):
+            if isinstance(val, (dict, list)):
+                return json.dumps(val)
+            return str(val)
+        return val
+
+    records = [tuple(coerce(c, row.get(c)) for c in cols) for row in rows]
+
+    try:
+        await conn.executemany(sql, records)
+        return len(records)
+    except Exception as exc:
+        logger.warning('pg_restore_table_failed', table=table, error=str(exc))
+        return 0
+
+
+async def _backup_qdrant_collection(qdrant_url: str, collection: str, api_key: str) -> bytes:
+    headers = {'api-key': api_key} if api_key else {}
+    async with httpx.AsyncClient(headers=headers) as client:
+        resp = await client.post(
+            f'{qdrant_url}/collections/{collection}/snapshots',
+            timeout=120.0,
+        )
+        resp.raise_for_status()
+        snapshot_name = resp.json()['result']['name']
+
+        download = await client.get(
+            f'{qdrant_url}/collections/{collection}/snapshots/{snapshot_name}',
+            timeout=300.0,
+        )
+        download.raise_for_status()
+        return download.content
+
+
+async def _restore_qdrant_collection(qdrant_url: str, collection: str, snapshot_bytes: bytes, api_key: str) -> None:
+    headers = {'api-key': api_key} if api_key else {}
+    async with httpx.AsyncClient(headers=headers) as client:
+        resp = await client.post(
+            f'{qdrant_url}/collections/{collection}/snapshots/upload?priority=snapshot',
+            files={'snapshot': (f'{collection}.snapshot', snapshot_bytes, 'application/octet-stream')},
+            timeout=300.0,
+        )
+        resp.raise_for_status()
+
+
+@router.get('/full')
+async def backup_full(db: DB, user: AdminUser) -> Response:
+    """Create a full backup ZIP: app config + all PostgreSQL tables + Qdrant snapshots."""
+    del user
+
+    settings = get_settings()
+    backup_date = datetime.now(timezone.utc).date().isoformat()
+
+    zip_buffer = io.BytesIO()
+    postgres_tables: list[str] = []
+    qdrant_collections: list[str] = [
+        settings.qdrant_collection_documents,
+        settings.qdrant_collection_memory,
+        settings.qdrant_collection_skills,
+        settings.qdrant_collection_wiki,
+    ]
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # 1. App config (settings, providers, agents, etc.)
+        config_payload = {
+            'version': '1.0',
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'data': {
+                cfg.section: await _backup_section(db, cfg)
+                for cfg in BACKUP_TABLES
+            },
+        }
+        zf.writestr('config.json', json.dumps(config_payload, default=json_default))
+
+        # 2. Full PostgreSQL dump
+        try:
+            pg_tables = await _dump_postgres_tables(settings.database_url)
+            postgres_tables = list(pg_tables.keys())
+            for table_name, rows in pg_tables.items():
+                zf.writestr(
+                    f'postgres/{table_name}.json',
+                    json.dumps(rows, default=_full_json_default),
+                )
+            logger.info('full_backup_postgres_ok', tables=len(postgres_tables))
+        except Exception as exc:
+            logger.error('full_backup_postgres_failed', error=str(exc))
+            zf.writestr('postgres/_error.txt', str(exc))
+
+        # 3. Qdrant collection snapshots
+        successful_qdrant: list[str] = []
+        for collection in qdrant_collections:
+            try:
+                snapshot_bytes = await _backup_qdrant_collection(
+                    settings.qdrant_url, collection, settings.qdrant_api_key
+                )
+                zf.writestr(f'qdrant/{collection}.snapshot', snapshot_bytes)
+                successful_qdrant.append(collection)
+                logger.info('full_backup_qdrant_ok', collection=collection, size=len(snapshot_bytes))
+            except Exception as exc:
+                logger.warning('full_backup_qdrant_failed', collection=collection, error=str(exc))
+                zf.writestr(f'qdrant/{collection}_error.txt', str(exc))
+
+        # 4. Manifest
+        manifest = {
+            'version': '2.0',
+            'type': 'full',
+            'created_at': datetime.now(timezone.utc).isoformat(),
+            'includes': ['config', 'postgres', 'qdrant'],
+            'postgres_tables': postgres_tables,
+            'qdrant_collections': successful_qdrant,
+        }
+        zf.writestr('manifest.json', json.dumps(manifest, indent=2))
+
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type='application/zip',
+        headers={
+            'Content-Disposition': f'attachment; filename="conflux-full-backup-{backup_date}.zip"',
+        },
+    )
+
+
+@router.post('/restore/full')
+async def restore_full_backup(
+    background_tasks: BackgroundTasks,
+    db: DB,
+    user: AdminUser,
+    file: UploadFile = File(...),
+) -> dict[str, Any]:
+    """Restore a full backup ZIP: app config + PostgreSQL tables + Qdrant snapshots."""
+    del user
+
+    settings = get_settings()
+    zip_data = await file.read()
+
+    try:
+        zf = zipfile.ZipFile(io.BytesIO(zip_data), 'r')
+    except zipfile.BadZipFile as exc:
+        raise HTTPException(status_code=400, detail='Invalid ZIP file') from exc
+
+    with zf:
+        namelist = zf.namelist()
+        results: dict[str, Any] = {'config': {}, 'postgres': {}, 'qdrant': {}}
+
+        # 1. Restore app config
+        if 'config.json' in namelist:
+            try:
+                config_payload = json.loads(zf.read('config.json'))
+                data = config_payload.get('data', {})
+                if isinstance(data, dict):
+                    section_rows = {cfg.section: _section_rows(data, cfg.section) for cfg in BACKUP_TABLES}
+                    restored_config: dict[str, int] = {}
+
+                    restored_config[SYSTEM_SETTINGS_CONFIG.section] = await _restore_generic_section(
+                        db, SYSTEM_SETTINGS_CONFIG, section_rows[SYSTEM_SETTINGS_CONFIG.section], {}
+                    )
+                    restored_config[TENANTS_CONFIG.section] = await _restore_generic_section(
+                        db, TENANTS_CONFIG, section_rows[TENANTS_CONFIG.section], {}
+                    )
+                    restored_config[USERS_CONFIG.section], user_id_map, inserted_emails = await _restore_users(
+                        db, section_rows[USERS_CONFIG.section]
+                    )
+                    restored_config[PROJECTS_CONFIG.section] = await _restore_generic_section(
+                        db, PROJECTS_CONFIG, section_rows[PROJECTS_CONFIG.section], user_id_map
+                    )
+                    for cfg in (
+                        PROVIDERS_CONFIG, PROVIDER_MODELS_CONFIG, AGENTS_CONFIG,
+                        SKILLS_CONFIG, SKILL_VERSIONS_CONFIG, SKILL_FILES_CONFIG,
+                        TOOL_CONFIGS_CONFIG, MCP_SERVERS_CONFIG, SSO_PROVIDER_SETTINGS_CONFIG,
+                        API_KEYS_CONFIG, SCHEDULED_TASKS_CONFIG,
+                    ):
+                        restored_config[cfg.section] = await _restore_generic_section(
+                            db, cfg, section_rows[cfg.section], user_id_map
+                        )
+                    await _restore_user_personal_projects(
+                        db, section_rows[USERS_CONFIG.section], inserted_emails
+                    )
+                    await _restore_skill_active_versions(db, section_rows[SKILLS_CONFIG.section])
+                    await db.flush()
+                    results['config'] = restored_config
+            except Exception as exc:
+                logger.error('full_restore_config_failed', error=str(exc))
+                results['config'] = {'error': str(exc)}
+
+        # 2. Restore PostgreSQL tables
+        pg_files = sorted(n for n in namelist if n.startswith('postgres/') and n.endswith('.json'))
+        if pg_files:
+            conn = await asyncpg.connect(_pg_url(settings.database_url))
+            try:
+                for pg_file in pg_files:
+                    table_name = pg_file[len('postgres/'):-len('.json')]
+                    try:
+                        rows = json.loads(zf.read(pg_file))
+                        count = await _restore_postgres_table(conn, table_name, rows)
+                        results['postgres'][table_name] = count
+                    except Exception as exc:
+                        logger.warning('full_restore_pg_table_failed', table=table_name, error=str(exc))
+                        results['postgres'][table_name] = f'error: {exc}'
+            finally:
+                await conn.close()
+
+        # 3. Restore Qdrant snapshots
+        snap_files = [n for n in namelist if n.startswith('qdrant/') and n.endswith('.snapshot')]
+        for snap_file in snap_files:
+            collection_name = snap_file[len('qdrant/'):-len('.snapshot')]
+            try:
+                snapshot_bytes = zf.read(snap_file)
+                await _restore_qdrant_collection(
+                    settings.qdrant_url, collection_name, snapshot_bytes, settings.qdrant_api_key
+                )
+                results['qdrant'][collection_name] = 'restored'
+                logger.info('full_restore_qdrant_ok', collection=collection_name)
+            except Exception as exc:
+                logger.warning('full_restore_qdrant_failed', collection=collection_name, error=str(exc))
+                results['qdrant'][collection_name] = f'error: {exc}'
+
+    background_tasks.add_task(_refresh_provider_registry_task)
+    return {'restored': results}
+
+
 @router.get('')
 async def backup_configuration(db: DB, user: AdminUser):
-    del user
 
     payload = {
         'version': '1.0',

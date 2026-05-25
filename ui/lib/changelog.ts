@@ -22,6 +22,54 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.35.17",
+    date: "2026-05-25",
+    title: "Full System Backup (PostgreSQL + Qdrant)",
+    summary:
+      "Backup now includes a full system ZIP export with all PostgreSQL tables and Qdrant vector collection snapshots, in addition to the existing config-only JSON backup.",
+    entries: [
+      {
+        category: "feature",
+        description:
+          "Added Full System Backup: downloads a ZIP containing all 40 PostgreSQL tables and Qdrant collection snapshots (documents, memory, skills, wiki)",
+      },
+      {
+        category: "feature",
+        description:
+          "Added Full System Restore: upload a full backup ZIP to restore PostgreSQL data via ON CONFLICT upserts and Qdrant collections via snapshot upload API",
+      },
+      {
+        category: "improvement",
+        description:
+          "Backup page now clearly separates Full System Backup from Config-only Backup with distinct cards",
+      },
+    ],
+  },
+  {
+    version: "0.35.16",
+    date: "2026-05-25",
+    title: "Backup Dedicated Page",
+    summary:
+      "Backup & Restore now has its own dedicated page and sidebar entry under the System section, separate from System Settings.",
+    entries: [
+      {
+        category: "improvement",
+        description:
+          "Moved Backup & Restore to its own page at /admin/backup with a dedicated sidebar nav item",
+      },
+      {
+        category: "improvement",
+        description:
+          "Added HardDriveDownload icon for Backup in the sidebar for clear visual identification",
+      },
+      {
+        category: "improvement",
+        description:
+          "Removed Backup card from System Settings page to reduce clutter",
+      },
+    ],
+  },
+  {
     version: "0.35.15",
     date: "2026-05-25",
     title: "Sidebar Reorganization",
