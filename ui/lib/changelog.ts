@@ -22,6 +22,22 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.35.13",
+    date: "2026-05-25",
+    title: "Stale Registry Fix",
+    summary: "Provider registry now refreshes automatically after any create/update/delete operation, eliminating 'Degraded - Missing default model' ghost entries.",
+    entries: [
+      {
+        category: "fixed",
+        description: "Registry refresh scheduled as background task after provider and model CRUD — deleted providers no longer persist as stale degraded entries",
+      },
+      {
+        category: "fixed",
+        description: "Diagnostics page now shows 'OK' for all services when providers are correctly configured",
+      },
+    ],
+  },
+  {
     version: "0.35.12",
     date: "2026-05-25",
     title: "Provider Edit 500 Fix",
