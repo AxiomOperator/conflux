@@ -1,7 +1,6 @@
 """Backup and restore routes for configuration data."""
 from __future__ import annotations
 
-import io
 import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -11,7 +10,7 @@ from uuid import UUID
 
 import structlog
 from fastapi import APIRouter, BackgroundTasks, File, HTTPException, UploadFile
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy import DateTime, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID as PGUUID
 
@@ -421,8 +420,8 @@ async def backup_configuration(db: DB, user: AdminUser):
     }
     backup_bytes = json.dumps(payload, default=json_default).encode('utf-8')
     backup_date = datetime.now(timezone.utc).date().isoformat()
-    return StreamingResponse(
-        io.BytesIO(backup_bytes),
+    return Response(
+        content=backup_bytes,
         media_type='application/json',
         headers={
             'Content-Disposition': f'attachment; filename="conflux-backup-{backup_date}.json"',
