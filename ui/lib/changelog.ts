@@ -22,6 +22,26 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
+    version: "0.35.11",
+    date: "2026-05-25",
+    title: "Provider Edit & Delete",
+    summary: "Providers can now be edited (base URL, API key, enabled toggle) and deleted directly from the Providers page.",
+    entries: [
+      {
+        category: "feature",
+        description: "Edit button on each provider card opens a dialog to update base URL, API key, and enabled status",
+      },
+      {
+        category: "feature",
+        description: "PATCH /api/providers/[id] Next.js proxy route and PATCH /v1/providers/{id} FastAPI backend already supported; now fully wired to the UI",
+      },
+      {
+        category: "improvement",
+        description: "Delete button relocated next to Edit button for consistent action grouping per provider card",
+      },
+    ],
+  },
+  {
     version: "0.35.10",
     date: "2026-05-25",
     title: "Structured Error Handling",
@@ -34,23 +54,24 @@ export const CHANGELOG: ChangelogRelease[] = [
           "Global FastAPI exception handler: catches all unhandled errors, logs them with full traceback, returns {detail, error} JSON",
       },
       {
-        category: "fix",
+        category: "fixed",
         description:
           "GET /providers/{id}/registered-models: wrapped in try/except with 404 provider check and structured 500 on DB errors",
       },
       {
-        category: "fix",
+        category: "fixed",
         description:
           "POST /providers/{id}/models: catches IntegrityError on duplicate model_name and returns 409 Conflict with a clear message",
       },
       {
-        category: "fix",
+        category: "fixed",
         description:
           "Providers UI: load-models errors are now surfaced to the user instead of silently ignored",
       },
     ],
   },
   {
+    version: "0.35.9",
     date: "2026-05-25",
     title: "First-User Admin Bootstrap",
     summary:

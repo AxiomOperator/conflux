@@ -124,6 +124,7 @@ export interface MarketplaceSearchResult {
 export interface Provider {
   base_url: string;
   default_model: string;
+  enabled?: boolean;
   health_status?: string;
   healthy?: boolean;
   id?: string;
@@ -598,6 +599,7 @@ function normalizeProvider(raw: unknown, models: string[] = []): Provider {
   return {
     base_url: asString(value.base_url),
     default_model: defaultModel,
+    enabled: value.is_enabled === undefined ? true : asBoolean(value.is_enabled),
     health_status: healthStatus,
     healthy: healthStatus === "healthy" || asBoolean(value.healthy),
     id: asString(value.id) || undefined,
@@ -927,6 +929,15 @@ export function createApiClient(
         return request<null>(
           `/providers/${providerId}`,
           opt({ method: "DELETE" }),
+        );
+      },
+      async update(
+        providerId: string,
+        body: { base_url?: string; api_key?: string; is_enabled?: boolean },
+      ) {
+        return request<{ id: string; name: string; base_url: string; is_enabled: boolean }>(
+          `/providers/${providerId}`,
+          opt({ method: "PATCH", body }),
         );
       },
       async listModels(providerId: string) {

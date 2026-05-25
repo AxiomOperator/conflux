@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Loader2, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, Pencil, Plus, RefreshCw, Search, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { useState } from "react";
@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -30,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import type { Provider, ProviderModelEntry } from "@/lib/api";
 import { createApiClient } from "@/lib/api";
 
@@ -58,6 +60,12 @@ export function ProvidersPage({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [modelFetchError, setModelFetchError] = useState<string | null>(null);
+
+  // Edit provider dialog state
+  const [editProvider, setEditProvider] = useState<Provider | null>(null);
+  const [editForm, setEditForm] = useState({ base_url: "", api_key: "", is_enabled: true });
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
 
   // Model management per-provider
   const { data: session } = useSession();
@@ -155,6 +163,35 @@ export function ProvidersPage({
       );
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  function openEditDialog(provider: Provider) {
+    setEditProvider(provider);
+    setEditForm({
+      base_url: provider.base_url ?? "",
+      api_key: "",
+      is_enabled: provider.enabled ?? true,
+    });
+    setEditError(null);
+  }
+
+  async function handleEditSave() {
+    if (!editProvider?.id || !session?.accessToken) return;
+    setEditSaving(true);
+    setEditError(null);
+    try {
+      await createApiClient(session.accessToken).providers.update(editProvider.id, {
+        base_url: editForm.base_url.trim() || undefined,
+        api_key: editForm.api_key || undefined,
+        is_enabled: editForm.is_enabled,
+      });
+      setEditProvider(null);
+      router.refresh();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Failed to update provider.");
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -496,19 +533,29 @@ export function ProvidersPage({
                   Re-check health
                 </Button>
                 {isAdmin && provider.id && (
-                  <Button
-                    variant="outline"
-                    className="w-full text-destructive hover:bg-destructive/10"
-                    disabled={deletingId === provider.id}
-                    onClick={() => void deleteProvider(provider.id!)}
-                  >
-                    {deletingId === provider.id ? (
-                      <Loader2 className="size-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="size-4" />
-                    )}
-                    Delete provider
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => openEditDialog(provider)}
+                    >
+                      <Pencil className="size-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1 text-destructive hover:bg-destructive/10"
+                      disabled={deletingId === provider.id}
+                      onClick={() => void deleteProvider(provider.id!)}
+                    >
+                      {deletingId === provider.id ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
+                      Delete
+                    </Button>
+                  </div>
                 )}
                 {/* ── Registered model management ── */}
                 {provider.id && (
@@ -624,6 +671,52 @@ export function ProvidersPage({
           </Card>
         )}
       </div>
+
+      {/* ── Edit Provider Dialog ── */}
+      <Dialog open={!!editProvider} onOpenChange={(open) => { if (!open) setEditProvider(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Provider — {editProvider?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1">
+              <Label htmlFor="edit-base-url">Base URL</Label>
+              <Input
+                id="edit-base-url"
+                value={editForm.base_url}
+                onChange={(e) => setEditForm((f) => ({ ...f, base_url: e.target.value }))}
+                placeholder="http://192.168.1.1:11434"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="edit-api-key">API Key <span className="text-muted-foreground text-xs">(leave blank to keep existing)</span></Label>
+              <Input
+                id="edit-api-key"
+                type="password"
+                value={editForm.api_key}
+                onChange={(e) => setEditForm((f) => ({ ...f, api_key: e.target.value }))}
+                placeholder="sk-…"
+              />
+            </div>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="edit-enabled"
+                checked={editForm.is_enabled}
+                onCheckedChange={(v) => setEditForm((f) => ({ ...f, is_enabled: v }))}
+              />
+              <Label htmlFor="edit-enabled">Enabled</Label>
+            </div>
+            {editError && <p className="text-xs text-destructive">{editError}</p>}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditProvider(null)}>Cancel</Button>
+            <Button onClick={() => void handleEditSave()} disabled={editSaving}>
+              {editSaving ? <Loader2 className="size-4 animate-spin" /> : null}
+              Save changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
