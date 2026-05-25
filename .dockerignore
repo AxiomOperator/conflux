@@ -1,0 +1,49 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+htmlcov/
+.coverage
+
+# Node / UI build artifacts
+ui/node_modules/
+ui/.next/
+ui/.turbo/
+
+# Runtime / local state
+.conflux/
+workspace/
+skills/
+uvicorn*.log
+*.pid
+*.log
+
+# Git / CI
+.git/
+.github/
+.gitignore
+
+# Docker reference files (not needed in image)
+docker/
+searxng-config/
+
+# Docs
+docs/
+*.md
+!README.md
+
+# Tests
+tests/
+
+# Env files (injected at runtime)
+.env
+.env.*
+ui/.env*
+
+# Editor
+.vscode/
+.idea/

@@ -1,0 +1,36 @@
+# ── Stage 1: Build ────────────────────────────────────────────────────────────
+FROM oven/bun:1 AS builder
+
+WORKDIR /app
+
+# Install dependencies (cached layer)
+COPY ui/package.json ui/bun.lock ./
+RUN bun install --frozen-lockfile
+
+# Copy full UI source
+COPY ui/ .
+
+# NEXT_PUBLIC_* vars must be baked in at build time
+ARG NEXT_PUBLIC_API_URL=""
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
+# Build Next.js (standalone output enabled in next.config.ts)
+RUN bun run build
+
+# ── Stage 2: Run ──────────────────────────────────────────────────────────────
+FROM node:20-slim AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Copy Next.js standalone server + static assets
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+
+EXPOSE 3000
+
+CMD ["node", "server.js"]

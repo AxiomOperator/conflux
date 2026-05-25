@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:18
+    restart: always
+    environment:
+      POSTGRES_USER: Postgres
+      POSTGRES_PASSWORD: F61ac5b57e0911!!
+      POSTGRES_DB: nexusharness
+    ports:
+      - "5432:5432"
+    volumes:
+      # Recommended: Mount to the parent directory
+      - postgres_data:/var/lib/postgresql
+
+volumes:
+  postgres_data:
