@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
@@ -14,6 +14,16 @@ from conflux.api.deps import DB
 from conflux.models.provider import Provider, ProviderModel
 
 logger = structlog.get_logger(__name__)
+
+
+async def _refresh_registry() -> None:
+    """Reload the provider registry from DB (runs as a background task after commit)."""
+    try:
+        from conflux.providers.registry import refresh_provider_registry
+        await refresh_provider_registry()
+        logger.info("provider_registry_refreshed")
+    except Exception as exc:
+        logger.warning("provider_registry_refresh_failed", error=str(exc))
 
 router = APIRouter()
 
@@ -56,7 +66,7 @@ async def list_providers(db: DB, user: CurrentUser):
 
 
 @router.post('', status_code=201)
-async def create_provider(body: ProviderCreate, db: DB, user: AdminUser):
+async def create_provider(body: ProviderCreate, db: DB, user: AdminUser, background_tasks: BackgroundTasks):
     provider = Provider(
         name=body.name,
         provider_type=body.provider_type,
@@ -74,6 +84,7 @@ async def create_provider(body: ProviderCreate, db: DB, user: AdminUser):
         ))
         await db.flush()
 
+    background_tasks.add_task(_refresh_registry)
     return {'id': str(provider.id), 'name': provider.name}
 
 
@@ -93,7 +104,7 @@ async def get_provider(provider_id: UUID, db: DB, user: CurrentUser):
 
 
 @router.patch('/{provider_id}')
-async def update_provider(provider_id: UUID, body: ProviderUpdate, db: DB, user: AdminUser):
+async def update_provider(provider_id: UUID, body: ProviderUpdate, db: DB, user: AdminUser, background_tasks: BackgroundTasks):
     try:
         result = await db.execute(select(Provider).where(Provider.id == provider_id))
         provider = result.scalar_one_or_none()
@@ -105,6 +116,7 @@ async def update_provider(provider_id: UUID, body: ProviderUpdate, db: DB, user:
         for field, value in updates.items():
             setattr(provider, field, value)
         await db.flush()
+        background_tasks.add_task(_refresh_registry)
         return {'id': str(provider.id), 'updated': True}
     except HTTPException:
         raise
@@ -114,7 +126,7 @@ async def update_provider(provider_id: UUID, body: ProviderUpdate, db: DB, user:
 
 
 @router.post('/{provider_id}/health-check')
-async def health_check_provider(provider_id: UUID, db: DB, user: CurrentUser):
+async def health_check_provider(provider_id: UUID, db: DB, user: CurrentUser, background_tasks: BackgroundTasks):
     result = await db.execute(select(Provider).where(Provider.id == provider_id))
     provider_row = result.scalar_one_or_none()
     if not provider_row:
@@ -122,6 +134,8 @@ async def health_check_provider(provider_id: UUID, db: DB, user: CurrentUser):
 
     from conflux.providers.registry import get_provider_registry
 
+    # Refresh the registry first so health check reflects current DB state
+    background_tasks.add_task(_refresh_registry)
     registry = get_provider_registry()
     try:
         provider = registry.get(provider_row.name)
@@ -141,7 +155,7 @@ async def health_check_provider(provider_id: UUID, db: DB, user: CurrentUser):
 
 
 @router.delete('/{provider_id}', status_code=204)
-async def delete_provider(provider_id: UUID, db: DB, user: AdminUser):
+async def delete_provider(provider_id: UUID, db: DB, user: AdminUser, background_tasks: BackgroundTasks):
     result = await db.execute(select(Provider).where(Provider.id == provider_id))
     provider = result.scalar_one_or_none()
     if not provider:
@@ -152,6 +166,7 @@ async def delete_provider(provider_id: UUID, db: DB, user: AdminUser):
     for model in models_result.scalars().all():
         await db.delete(model)
     await db.delete(provider)
+    background_tasks.add_task(_refresh_registry)
 
 
 @router.get('/{provider_id}/models')
@@ -186,6 +201,7 @@ async def add_provider_model(
     body: ProviderModelCreate,
     db: DB,
     user: AdminUser,
+    background_tasks: BackgroundTasks,
 ):
     """Manually register a model under a provider."""
     result = await db.execute(select(Provider).where(Provider.id == provider_id))
@@ -207,6 +223,7 @@ async def add_provider_model(
     except IntegrityError:
         await db.rollback()
         raise HTTPException(409, f"Model '{body.model_name}' is already registered for this provider.")
+    background_tasks.add_task(_refresh_registry)
     return {
         'id': str(model.id),
         'model_name': model.model_name,
@@ -221,6 +238,7 @@ async def remove_provider_model(
     model_id: UUID,
     db: DB,
     user: AdminUser,
+    background_tasks: BackgroundTasks,
 ):
     """Remove a manually registered model from a provider."""
     result = await db.execute(
@@ -233,6 +251,7 @@ async def remove_provider_model(
     if not model:
         raise HTTPException(404, 'Model not found')
     await db.delete(model)
+    background_tasks.add_task(_refresh_registry)
 
 
 @router.get('/{provider_id}/registered-models')
