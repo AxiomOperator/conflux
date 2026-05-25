@@ -1,7 +1,18 @@
 "use client";
 
-import { Eye, EyeOff, Loader2, RefreshCw, Save, X } from "lucide-react";
+import {
+  Download,
+  Eye,
+  EyeOff,
+  Loader2,
+  RefreshCw,
+  Save,
+  Upload,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+
+import { Separator } from "@/components/ui/separator";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -181,6 +192,13 @@ export function SystemSettingsPage() {
     {},
   );
   const [toastState, setToastState] = useState<ToastState | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [restoring, setRestoring] = useState(false);
+  const [restoreResult, setRestoreResult] = useState<{
+    restored: Record<string, number>;
+  } | null>(null);
+  const [restoreInputKey, setRestoreInputKey] = useState(0);
 
   const toast = useCallback((next: ToastState) => {
     setToastState(next);
@@ -340,6 +358,83 @@ export function SystemSettingsPage() {
       });
     } finally {
       setSaving((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  async function handleDownloadBackup() {
+    setDownloading(true);
+    try {
+      const response = await fetch("/api/backup", { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(await readErrorMessage(response, "Backup failed."));
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `conflux-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Backup downloaded" });
+    } catch (downloadError) {
+      toast({
+        title:
+          downloadError instanceof Error
+            ? downloadError.message
+            : "Backup failed.",
+        tone: "error",
+      });
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  async function handleRestore() {
+    if (!selectedFile) {
+      return;
+    }
+
+    setRestoring(true);
+    setRestoreResult(null);
+    try {
+      const form = new FormData();
+      form.append("file", selectedFile);
+
+      const response = await fetch("/api/backup/restore", {
+        method: "POST",
+        body: form,
+      });
+      const data = (await response.json().catch(() => null)) as {
+        detail?: string;
+        error?: string;
+        message?: string;
+        restored?: Record<string, number>;
+      } | null;
+
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ?? data?.error ?? data?.message ?? "Restore failed.",
+        );
+      }
+
+      setRestoreResult({ restored: data?.restored ?? {} });
+      setSelectedFile(null);
+      setRestoreInputKey((prev) => prev + 1);
+      await loadSettings();
+      toast({ title: "Backup restored" });
+    } catch (restoreError) {
+      toast({
+        title:
+          restoreError instanceof Error
+            ? restoreError.message
+            : "Restore failed.",
+        tone: "error",
+      });
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -603,6 +698,78 @@ export function SystemSettingsPage() {
             </section>
           ))
         : null}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Backup &amp; Restore</CardTitle>
+          <CardDescription>
+            Export your configuration to a JSON file or restore from a previous
+            backup.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <h3 className="font-medium">Create Backup</h3>
+            <p className="text-sm text-muted-foreground">
+              Downloads a JSON file containing all system settings, providers,
+              agents, skills, and user configuration.
+            </p>
+            <Button onClick={() => void handleDownloadBackup()} disabled={downloading}>
+              {downloading ? (
+                <Loader2 className="mr-2 size-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 size-4" />
+              )}
+              {downloading ? "Creating backup…" : "Download Backup"}
+            </Button>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-2">
+            <h3 className="font-medium">Restore from Backup</h3>
+            <p className="text-sm text-muted-foreground">
+              Upload a previously exported backup file to restore your
+              configuration.
+              <strong className="text-amber-600 dark:text-amber-400">
+                {" "}This will overwrite existing settings.
+              </strong>
+            </p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-center">
+              <Input
+                key={restoreInputKey}
+                type="file"
+                accept=".json"
+                onChange={(event) => {
+                  setSelectedFile(event.target.files?.[0] ?? null);
+                  setRestoreResult(null);
+                }}
+                className="max-w-xs"
+              />
+              <Button
+                variant="destructive"
+                onClick={() => void handleRestore()}
+                disabled={!selectedFile || restoring}
+              >
+                {restoring ? (
+                  <Loader2 className="mr-2 size-4 animate-spin" />
+                ) : (
+                  <Upload className="mr-2 size-4" />
+                )}
+                {restoring ? "Restoring…" : "Restore"}
+              </Button>
+            </div>
+            {restoreResult ? (
+              <p className="text-sm text-muted-foreground">
+                Restored:{" "}
+                {Object.entries(restoreResult.restored ?? {})
+                  .map(([key, value]) => `${value} ${key}`)
+                  .join(", ") || "nothing"}
+              </p>
+            ) : null}
+          </div>
+        </CardContent>
+      </Card>
 
       {toastState ? (
         <div className="fixed right-4 bottom-4 z-50">

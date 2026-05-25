@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from conflux.api.middleware.trace import RequestTraceMiddleware
+from conflux.api.routes.backup import router as backup_router
 from conflux.api.routes.events import router as events_router
 
 logger = structlog.get_logger(__name__)
@@ -209,6 +210,7 @@ def create_app() -> FastAPI:
     app.include_router(wiki_search_routes.router)
     app.include_router(events_router)
     app.include_router(compat.router, prefix="/v1", tags=["openai-compat"])
+    app.include_router(backup_router, prefix="/v1/backup", tags=["backup"])
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
