@@ -29,6 +29,7 @@ SETTINGS_CATALOG: list[SettingDef] = [
     SettingDef("telegram_allowed_user_ids", "messaging", "Telegram Allowed User IDs", "Telegram user IDs allowed to use the bot", setting_type="list", env_attr="telegram_allowed_user_ids"),
     SettingDef("telegram_webhook_secret", "messaging", "Telegram Webhook Secret", "Webhook validation secret", sensitive=True, env_attr="telegram_webhook_secret"),
     SettingDef("telegram_mode", "messaging", "Telegram Mode", "polling or webhook", env_attr="telegram_mode"),
+    SettingDef("discord_bot_token", "messaging", "Discord Bot Token", "Token from the Discord Developer Portal", sensitive=True, env_attr="discord_bot_token"),
     SettingDef("agentmail_api_key", "messaging", "AgentMail API Key", "API key for agentmail.to", sensitive=True, env_attr="agentmail_api_key"),
     SettingDef("agentmail_api_url", "messaging", "AgentMail API URL", "AgentMail API base URL", env_attr="agentmail_api_url"),
     SettingDef("data_guard_enabled", "features", "Data Guard", "Block destructive operations in dev/test", setting_type="bool", env_attr="data_guard_enabled"),

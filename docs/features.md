@@ -6,7 +6,7 @@ Conflux is a self-learning, multi-user AI Agent Harness built for enterprise and
 
 ---
 
-## Current Capabilities (v0.35.x)
+## Current Capabilities (v0.36.x)
 
 ### Core Platform
 | Feature | Status | Notes |
@@ -19,6 +19,7 @@ Conflux is a self-learning, multi-user AI Agent Harness built for enterprise and
 | Request Trace Log | ✅ Live (v0.35.5) | Full audit log of every API call — method, path, status, duration, user, body previews; filterable admin UI |
 | Agent Audit Trail | ✅ v0.35.6 | Complete log of tool calls, shell commands, and errors per agent run |
 | Skill Improvement Pipeline | ✅ v0.35.7 | Automated pattern detection, eval-driven candidate generation, Promote/Reject/Quarantine decisions |
+| Full System Backup & Restore | ✅ v0.35.17 | ZIP export of all PostgreSQL tables + Qdrant snapshots; ZIP restore via upsert + snapshot upload |
 | Dark/light theme | ✅ Live | Next-themes with system preference |
 | Web dashboard | ✅ Live | Chat, Runs, Colony, Memory, Skills, Providers, Settings |
 
@@ -62,6 +63,7 @@ Conflux is a self-learning, multi-user AI Agent Harness built for enterprise and
 |---------|--------|-------|
 | Web chat UI | ✅ Live | Full streaming chat with tool call display |
 | Telegram bot | ✅ Live | Commands, inline keyboards, agent loop, history; allowed user IDs managed as chip list in System Settings |
+| Discord bot | ✅ Live (v0.36.0) | Full discord.py bot — @mention + DM support, /link account pairing, slash commands, voice transcription, per-server channel→agent routing, role-based access, thread mode, emoji reactions, admin UI |
 | Playground | ✅ Live | Web-based single-turn agent playground |
 | Email (AgentMail) | ✅ Live | Agents can create inboxes, send/receive email, manage threads via 9 built-in tools; admin inbox management UI |
 
@@ -89,63 +91,87 @@ Conflux is a self-learning, multi-user AI Agent Harness built for enterprise and
 - Self-improving research agent by Nous Research, Python
 - Strength: MCP protocol support, closed learning loop with skill self-improvement, Honcho user modeling, FTS5 session search, 7 sandbox backends (Modal/Daytona/Vercel), Rich TUI, batch trajectory generation for fine-tuning
 
+**ZeroClaw** ([github.com/zeroclaw-labs/zeroclaw](https://github.com/zeroclaw-labs/zeroclaw))
+- Single-user, local-first Rust binary (Rust Edition 2024) — runs entirely on your machine, configured via a single TOML file
+- Strength: 30+ channel adapters (Discord, Telegram, Matrix, Slack, Signal, WhatsApp, IRC, Mattermost, Lark/DingTalk, email, voice/telephony, social feeds, webhooks, CLI, ACP for IDE integration), ~20 LLM providers with automatic fallback chains, OS-level sandboxing (Landlock/Bubblewrap/Seatbelt/Docker), cryptographic tool receipts on every action, hardware I/O (GPIO/I2C/SPI/USB on Raspberry Pi/Arduino/ESP32), SOP engine (event-triggered workflows via MQTT/webhook/cron with approval gates and resumable runs), web gateway + dashboard
+- Not multi-user — designed as a personal tool; no RBAC, no per-user isolation, no admin governance
+
+**memUBot** ([github.com/NevaMind-AI/memUBot](https://github.com/NevaMind-AI/memUBot))
+- Enterprise-ready team AI assistant built on the [memU](https://github.com/NevaMind-AI/memU) open-source memory framework; positions as "OpenClaw for your whole team"
+- Strength: Advanced memory architecture (semantic indexing, auto-flush before compaction, shared memory pools, full memory audit trail, GDPR deletion), 4 live channels (Telegram, Discord, Slack, Feishu), MCP support, proactive 24/7 intent capture, one-click install < 3 min, ~10× token reduction via memory-optimized context selection
+- Gaps: RBAC/SSO/multi-user on roadmap only, no web dashboard yet, macOS+Windows only (Linux planned), most enterprise governance features not yet built
+
 ---
 
 ### Where Conflux Leads
-- **Only true multi-user platform** — RBAC, SSO, per-user isolation, tenant scoping (both competitors are single-user or session-based)
+- **Only true multi-user platform** — RBAC, SSO, per-user isolation, tenant scoping (OpenClaw and ZeroClaw are single-user; memUBot's RBAC/SSO is roadmap-only)
 - **Admin-governed AI** — skill approval workflow, provider assignment policies, usage governance
 - **Agent colony/hive** — multi-agent orchestration with worker topology
 - **Approval-gated learning** — skill evolution requires human sign-off before deployment
-- **Enterprise-ready** — PostgreSQL, audit trails, role management, API keys
+- **Enterprise-ready now** — PostgreSQL, audit trails, role management, API keys, system backup — all live today while memUBot still builds these features
+- **First-class Discord bot** — full discord.py integration running the same AgentLoop as the web UI (not just a webhook relay); per-server routing, role ACL, thread mode, voice transcription
+- **vs ZeroClaw specifically** — ZeroClaw wins on breadth of channel adapters and hardware I/O; Conflux wins on everything multi-user: RBAC, governance, web admin, per-user isolation, and the self-learning pipeline
+- **vs memUBot specifically** — memUBot leads on memory architecture depth (auto-flush, shared pools, semantic recall); Conflux leads on live enterprise features (RBAC, SSO, full web dashboard, multi-agent, skill governance, backup/restore) — all of which memUBot has only on its roadmap
 
 ---
 
 ### Feature Gaps
 
-#### Channels (both competitors ahead)
-| Channel | OpenClaw | Hermes | Conflux |
-|---------|---------|--------|---------|
-| Telegram | ✅ | ❌ | ✅ |
-| Discord | ✅ | ✅ | ❌ |
-| Slack | ✅ | ✅ | ❌ |
-| WhatsApp | ✅ | ❌ | ❌ |
-| Email | ✅ | ✅ | ✅ Live (v0.33) |
-| Signal | ✅ | ❌ | ❌ |
-| Matrix | ✅ | ❌ | ❌ |
-| IRC | ✅ | ❌ | ❌ |
-| Microsoft Teams | ✅ | ❌ | ❌ |
-| Inbound Webhooks | ✅ | ❌ | ❌ |
+#### Channels (ZeroClaw leads with 30+ adapters; memUBot comparable to Conflux)
+| Channel | OpenClaw | Hermes | ZeroClaw | memUBot | Conflux |
+|---------|---------|--------|----------|---------|---------|
+| Telegram | ✅ | ❌ | ✅ | ✅ | ✅ |
+| Discord | ✅ | ✅ | ✅ | ✅ | ✅ Live (v0.36.0) |
+| Slack | ✅ | ✅ | ✅ | ✅ | ❌ |
+| WhatsApp | ✅ | ❌ | ✅ | 🔜 Roadmap | ❌ |
+| Email | ✅ | ✅ | ✅ | 🔜 Roadmap | ✅ Live (v0.33) |
+| Signal | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Matrix | ✅ | ❌ | ✅ | ❌ | ❌ |
+| IRC | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Mattermost | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Feishu / Lark | ❌ | ❌ | ✅ | ✅ | ❌ |
+| Microsoft Teams | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Social (Bluesky/Twitter/Reddit) | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Voice / Telephony | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Inbound Webhooks | ✅ | ❌ | ✅ | ❌ | ❌ |
+| Web UI / Chat | ✅ | ❌ | ✅ | 🔜 Roadmap | ✅ |
+| CLI | ✅ | ✅ | ✅ | 🔜 Roadmap | ✅ |
 
 #### Tools & Execution
-| Feature | OpenClaw | Hermes | Conflux |
-|---------|---------|--------|---------|
-| MCP Protocol | ❌ | ✅ | ✅ Live (v0.27) |
-| Tool sandboxing (Docker) | ✅ | ✅ | ❌ |
-| Tool sandboxing (SSH) | ✅ | ✅ | ❌ |
-| Serverless sandbox (Modal/Daytona) | ❌ | ✅ | ❌ |
-| Model failover/rotation | ✅ | partial | ❌ |
-| Cron / scheduled tasks | ✅ | ✅ | ✅ Live (v0.28) |
+| Feature | OpenClaw | Hermes | ZeroClaw | memUBot | Conflux |
+|---------|---------|--------|----------|---------|---------|
+| MCP Protocol | ❌ | ✅ | ✅ | ✅ | ✅ Live (v0.27) |
+| Tool sandboxing (Docker) | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Tool sandboxing (SSH) | ✅ | ✅ | ❓ | ❌ | ❌ |
+| OS-level sandbox (Landlock/Bubblewrap) | ❌ | ❌ | ✅ | ❌ | ❌ |
+| Serverless sandbox (Modal/Daytona) | ❌ | ✅ | ❌ | ❌ | ❌ |
+| Model failover/rotation | ✅ | partial | ✅ | ❓ | ❌ |
+| Cron / scheduled tasks | ✅ | ✅ | ✅ | ✅ | ✅ Live (v0.28) |
+| Hardware I/O (GPIO/SPI/I2C) | ❌ | ❌ | ✅ | ❌ | ❌ |
 
 #### Intelligence & Memory
-| Feature | OpenClaw | Hermes | Conflux | Notes |
-|---------|---------|--------|---------|-------|
-| User persona modeling (SOUL) | partial | ✅ Honcho | ✅ Live | SOUL.md, AGENTS.md, identity_md, user_md, tools_md — injected into every agent run; editable in Settings |
-| Context files (AGENTS.md) | ✅ | ✅ | ✅ Live | Per-user `agents_md` field in `UserPersonaFiles`, injected via `_fetch_persona_block()` in agent loop |
-| Session FTS search | ❌ | ✅ | ✅ Live | PostgreSQL `tsvector` GIN index on runs + memory; `websearch_to_tsquery`; search bar in Runs dashboard |
-| Trajectory collection for fine-tuning | ❌ | ✅ | ✅ Live | Admin-reviewed trajectory capture with OpenAI JSONL export |
-| Session compression | ✅ | ✅ | ✅ Live | Summary is stored on runs and reused for future turns to reduce context cost |
-| Knowledge Wiki | ✅ | ❌ | ✅ Live (v0.35) | Hierarchical spaces+pages, ACL groups, metadata fields, version history, hybrid search, agent RAG |
+| Feature | OpenClaw | Hermes | ZeroClaw | memUBot | Conflux | Notes |
+|---------|---------|--------|----------|---------|---------|-------|
+| User persona modeling (SOUL) | partial | ✅ Honcho | ❓ | ✅ | ✅ Live | SOUL.md, AGENTS.md, identity_md, user_md, tools_md — injected into every agent run; editable in Settings |
+| Context files (AGENTS.md) | ✅ | ✅ | ❓ | ❓ | ✅ Live | Per-user `agents_md` field in `UserPersonaFiles`, injected via `_fetch_persona_block()` in agent loop |
+| Session FTS search | ❌ | ✅ | ❓ | ❓ | ✅ Live | PostgreSQL `tsvector` GIN index on runs + memory; `websearch_to_tsquery`; search bar in Runs dashboard |
+| Trajectory collection for fine-tuning | ❌ | ✅ | ❓ | ❓ | ✅ Live | Admin-reviewed trajectory capture with OpenAI JSONL export |
+| Session compression | ✅ | ✅ | ❓ | ✅ | ✅ Live | Summary is stored on runs and reused for future turns to reduce context cost |
+| Long-term memory | Markdown files | ✅ | SQLite + embeddings | ✅ memU (semantic, auto-flush, shared pools) | ✅ Qdrant | memUBot has most advanced memory architecture |
+| Memory audit trail | ❌ | ❌ | ❓ | ✅ | ❓ | memUBot provides exportable memory history |
+| Knowledge Wiki | ✅ | ❌ | ❌ | ❌ | ✅ Live (v0.35) | Hierarchical spaces+pages, ACL groups, metadata fields, version history, hybrid search, agent RAG |
 
 #### UX / Commands
-| Feature | OpenClaw | Hermes | Conflux |
-|---------|---------|--------|---------|
-| /compress | ✅ | ✅ | ✅ Live |
-| /retry, /undo | ✅ | ✅ | ✅ Live (v0.34) |
-| /personality | ✅ | ❌ | ✅ Live (v0.34) |
-| /insights analytics | ✅ | ✅ | ✅ Live (v0.34) |
-| /doctor diagnostic | ✅ | ✅ | ✅ Live (v0.34) |
-| Rich TUI | ❌ | ✅ | ✅ Live (v0.29) |
-| Onboarding wizard | ✅ | ❌ | ✅ Live (v0.34) |
+| Feature | OpenClaw | Hermes | ZeroClaw | memUBot | Conflux |
+|---------|---------|--------|----------|---------|---------|
+| /compress | ✅ | ✅ | ❓ | ❓ | ✅ Live |
+| /retry, /undo | ✅ | ✅ | ❓ | ❓ | ✅ Live (v0.34) |
+| /personality | ✅ | ❌ | ❓ | ❓ | ✅ Live (v0.34) |
+| /insights analytics | ✅ | ✅ | ❓ | 🔜 Roadmap | ✅ Live (v0.34) |
+| /doctor diagnostic | ✅ | ✅ | ❓ | ❓ | ✅ Live (v0.34) |
+| Rich TUI | ❌ | ✅ | ❓ | ❌ | ✅ Live (v0.29) |
+| Onboarding wizard | ✅ | ❌ | ✅ (`zeroclaw onboard`) | ✅ (< 3 min) | ✅ Live (v0.34) |
+| SOP / Workflow engine | ❌ | ❌ | ✅ (event-triggered, approval-gated) | ❌ | ❌ |
 
 ---
 
@@ -153,47 +179,39 @@ Conflux is a self-learning, multi-user AI Agent Harness built for enterprise and
 
 ### Tier 1 — Critical (highest competitive impact)
 
-#### T1-1: MCP (Model Context Protocol) Integration
-**Why first:** Instant access to 500+ community tool servers. Hermes has it. One feature that multiplies agent capability overnight.
-
-**Scope:**
+#### T1-1: MCP (Model Context Protocol) Integration ✅ Shipped (v0.27)
+**Delivered:**
 - MCP client library (`conflux/integrations/mcp.py`) supporting stdio and SSE transports
-- Bridge that exposes MCP tools into Conflux's `ToolRegistry` dynamically
+- Bridge exposes MCP tools into Conflux's `ToolRegistry` dynamically
 - Admin UI: add/configure/remove MCP servers per agent or globally
-- Support per-agent MCP server lists (different agents get different tool access)
-- Secure: only admin can add MCP servers; tool-level risk is set by admin
-
-**Files:** `conflux/integrations/mcp.py`, `conflux/tools/mcp_bridge.py`, migration, `ui/app/(dashboard)/settings/mcp/`
+- Per-agent MCP server lists — different agents get different tool access
+- Only admins can add MCP servers; tool-level risk is set by admin
 
 ---
 
-#### T1-2: Cron / Scheduled Tasks
-**Why:** Both competitors have it. "Remind me every morning at 9am" is the single most requested agent feature. Delivers to any channel.
-
-**Scope:**
+#### T1-2: Cron / Scheduled Tasks ✅ Shipped (v0.28)
+**Delivered:**
 - Schedule model in DB: `agent_id`, `schedule` (cron expression), `input_template`, `channel`, `user_id`
 - Natural-language → cron expression parser (e.g. "every weekday at 9am EST")
 - Arq background worker polls due schedules and spawns agent runs
 - Output delivered back to originating channel (Telegram, Discord, email, etc.)
 - Admin UI: view/create/edit/delete schedules; user UI: manage own schedules
 
-**Files:** `conflux/scheduler/`, DB migration, `ui/app/(dashboard)/schedules/`
-
 ---
 
-#### T1-3: Discord Channel
-**Why:** Discord is the dominant community/team platform. OpenClaw and Hermes both have it.
+#### T1-3: Discord Channel ✅ Shipped (v0.36.0)
+**Full discord.py bot** — not just a webhook relay. Messages run through the same AgentLoop as the web UI.
 
-**Scope:**
-- `discord.py` bot mirroring the Telegram implementation
-- User pairing via API key (same `/link <key>` flow)
-- Full agent loop integration with conversation history
-- Slash commands: `/start`, `/help`, `/status`, `/new`, `/agents`
-- Message reactions for acknowledgement (same as Telegram thumbs-up)
-- Support server-level and DM conversations
-- Admin settings: Discord bot token in provider config
-
-**Files:** `conflux/channels/discord.py`, admin settings, UI pairing page
+**Delivered:**
+- `conflux/channels/discord_bot.py` — ConfluxBot with full AgentLoop integration
+- `/link <api_key>` pairing flow → `DiscordLink` table
+- Slash commands: `/ask`, `/link`, `/unlink`, `/new`, `/me`, `/agents`, `/status`, `/config` group
+- Per-server channel→agent routing, role-based access control
+- Thread-per-conversation mode, voice/audio transcription via faster-whisper-server
+- Message reactions: ⏳ on receipt → ✅ on success / ❌ on error
+- Proactive notification helper (`send_notification()`) for scheduler/run hooks
+- Admin UI: Discord Bot page under Admin → Integrations (status, guild list, per-guild config editor)
+- Graceful privileged intents fallback (runs without Members intent if not enabled in portal)
 
 ---
 
@@ -233,11 +251,10 @@ Conflux is a self-learning, multi-user AI Agent Harness built for enterprise and
 - `/link <api_key>` pairing flow
 - `conflux/channels/slack.py`
 
-#### T2-2: Inbound Webhooks
+#### T2-2: Inbound Webhooks ✅ Shipped (v0.31)
 - Generic `POST /v1/webhooks/{webhook_id}` endpoint
 - Configurable per-agent: secret token, input field mapping, response delivery method
 - Use cases: GitHub push events, form submissions, monitoring alerts, CI/CD triggers
-- `conflux/channels/webhook.py`, DB model, admin/user UI
 
 #### T2-3: Session FTS Search ✅ Already Shipped
 - PostgreSQL `tsvector` generated columns + GIN indexes on run `input`/`output` and memory key/value
@@ -255,38 +272,36 @@ Per-user `UserPersonaFiles` with `agents_md`, `soul_md`, `identity_md`, `user_md
 
 ### Tier 3 — Differentiation Features
 
-#### T3-1: Session Compression (`/compress`)
-- Summarize conversation history when context gets long
-- `/compress` command in all channels + keyboard shortcut in web UI
+#### T3-1: Session Compression (`/compress`) ✅ Shipped (v0.34)
+- Summarizes conversation history when context gets long
+- `/compress` command available in all channels + keyboard shortcut in web UI
 - Stores compressed summary + raw history; subsequent turns use compressed context
 - Reduces token cost for long sessions
 
-#### T3-2: Conversation Commands (`/retry`, `/undo`, `/personality`)
+#### T3-2: Conversation Commands (`/retry`, `/undo`, `/personality`) ✅ Shipped (v0.34)
 - `/retry` — re-run last agent turn with same input (useful when output was poor)
 - `/undo` — remove last exchange from history
 - `/personality <name>` — switch agent system prompt persona on the fly
-- Available in Telegram, Discord, Slack, and web UI
+- Available in Telegram, Discord, and web UI
 
-#### T3-3: Email Channel
-- IMAP (inbound) + SMTP (outbound) integration
-- Parse incoming emails → agent run → reply via email
+#### T3-3: Email Channel ✅ Shipped (v0.33 — AgentMail)
+- Agents can create inboxes, send/receive email, and manage threads via 9 built-in tools
 - Sender authentication: email address → Conflux user mapping
-- `conflux/channels/email.py`
+- Admin inbox management UI
 
-#### T3-4: Trajectory Collection for Fine-Tuning
-- Record high-quality agent runs as structured `(system, user, tool_calls, output)` trajectories
+#### T3-4: Trajectory Collection for Fine-Tuning ✅ Shipped
+- Records high-quality agent runs as structured `(system, user, tool_calls, output)` trajectories
 - Admin review UI: rate, tag, and approve trajectories
 - Export in OpenAI and Anthropic fine-tuning JSONL format
-- Conflux's multi-user platform means richer, more diverse training data than any single-user tool
-- `conflux/training/trajectories.py`, admin UI
+- Conflux's multi-user platform provides richer, more diverse training data than any single-user tool
 
-#### T3-5: `/insights` Usage Analytics
+#### T3-5: `/insights` Usage Analytics ✅ Shipped (v0.34)
 - Per-user and per-agent metrics: token usage, run counts, skill invocations, tool use frequency
 - Time-series charts on dashboard
 - `/insights` command in messaging channels returns a text summary
 - Admin view: aggregate across all users, cost tracking per provider
 
-#### T3-6: `/doctor` Diagnostic Command
+#### T3-6: `/doctor` Diagnostic Command ✅ Shipped (v0.34)
 - Health check for all services: PostgreSQL, Qdrant, DragonflyDB, SearXNG, LLM providers
 - Reports latency, connection status, last successful heartbeat
 - Available as `/doctor` in all channels and a dedicated admin dashboard page
@@ -335,7 +350,7 @@ All channels follow the same pattern established by Telegram:
 | v0.27 | ✅ Shipped | MCP Integration |
 | v0.28 | ✅ Shipped | Cron / Scheduled Tasks |
 | v0.29 | ✅ Shipped | Rich TUI |
-| v0.30 | Planned | Discord + Slack Channels |
+| v0.30 | Planned | Slack Channel |
 | v0.30 | Planned | Tool Sandboxing + Model Failover |
 | v0.31 | ✅ Shipped | Inbound Webhooks + Session FTS |
 | v0.32 | Planned | User Persona + Context Files |
@@ -347,7 +362,10 @@ All channels follow the same pattern established by Telegram:
 | v0.35.5 | ✅ Shipped | Raw Trace Report (request audit log) |
 | v0.35.6 | ✅ Shipped | Agent Audit Trail — tool calls, shell commands, errors |
 | v0.35.7 | ✅ Shipped | Automated Skill Improvement Pipeline |
-| v0.36 | Planned | Tool Sandboxing + Model Failover |
+| v0.35.17 | ✅ Shipped | Full System Backup & Restore (PostgreSQL + Qdrant ZIP) |
+| v0.36.0 | ✅ Shipped | Full Discord Bot Integration |
+| v0.36.1 | ✅ Shipped | Discord Bot Bug Fixes (API key hash, Agent field refs, DB defaults, emoji reactions) |
+| v0.37 | Planned | Tool Sandboxing + Model Failover |
 | v1.0  | Planned | Full competitive parity + enterprise GA |
 
 ### Knowledge Wiki v0.35

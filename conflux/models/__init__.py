@@ -1,5 +1,5 @@
 from conflux.models.base_mixin import TimestampMixin, UUIDMixin
-from conflux.models.user import User, APIKey, UserPersonaFiles, UserViewAsSetting, TelegramLink
+from conflux.models.user import User, APIKey, UserPersonaFiles, UserViewAsSetting, TelegramLink, DiscordLink
 from conflux.models.tenant import Tenant, Project
 from conflux.models.provider import Provider, ProviderModel
 from conflux.models.agent import Agent, AgentRun, RunEvent, SubagentDelegation
@@ -29,10 +29,11 @@ from conflux.models.wiki import (
     WikiPageVersion,
     WikiSpace,
 )
+from conflux.models.discord_guild import DiscordGuildConfig
 
 __all__ = [
     "TimestampMixin", "UUIDMixin",
-    "User", "APIKey", "UserPersonaFiles", "UserViewAsSetting", "TelegramLink",
+    "User", "APIKey", "UserPersonaFiles", "UserViewAsSetting", "TelegramLink", "DiscordLink",
     "Tenant", "Project",
     "Provider", "ProviderModel",
     "Agent", "AgentRun", "RunEvent", "SubagentDelegation",
@@ -48,4 +49,5 @@ __all__ = [
     "SystemSetting",
     "RequestTrace",
     "WikiAccessRule", "WikiGroup", "WikiGroupMember", "WikiPage", "WikiPageVersion", "WikiSpace",
+    "DiscordGuildConfig",
 ]

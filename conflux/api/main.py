@@ -38,13 +38,28 @@ async def lifespan(app: FastAPI):
     # Apply any DB tool overrides / custom tools to the live registry
     await _load_tool_configs()
 
-    # Start Telegram bot if configured
+    # Start Telegram bot if configured (check env + DB setting)
     telegram_task = None
     from conflux.core.config import get_settings
-    if get_settings().telegram_bot_token:
+    from conflux.core.database import get_session_factory
+    from conflux.services.system_settings import get_setting
+
+    _sf = get_session_factory()
+    async with _sf() as _db:
+        _telegram_token = await get_setting(_db, "telegram_bot_token") or get_settings().telegram_bot_token
+        _discord_token = await get_setting(_db, "discord_bot_token") or get_settings().discord_bot_token
+
+    if _telegram_token:
         from conflux.channels.telegram import run_telegram_bot
         telegram_task = asyncio.create_task(run_telegram_bot())
         logger.info("Telegram bot task started")
+
+    # Start Discord bot if configured (check env + DB setting)
+    discord_task = None
+    if _discord_token:
+        from conflux.channels.discord_bot import run_discord_bot
+        discord_task = asyncio.create_task(run_discord_bot())
+        logger.info("Discord bot task started")
 
     yield
 
@@ -52,6 +67,13 @@ async def lifespan(app: FastAPI):
         telegram_task.cancel()
         try:
             await telegram_task
+        except asyncio.CancelledError:
+            pass
+
+    if discord_task and not discord_task.done():
+        discord_task.cancel()
+        try:
+            await discord_task
         except asyncio.CancelledError:
             pass
 
@@ -181,6 +203,7 @@ def create_app() -> FastAPI:
     from conflux.api.routes import traces as traces_routes
     from conflux.api.routes import wiki as wiki_routes
     from conflux.api.routes import wiki_search as wiki_search_routes
+    from conflux.api.routes import discord_routes
 
     app.include_router(agents.router, prefix="/v1/agents", tags=["agents"])
     app.include_router(runs.router, prefix="/v1/runs", tags=["runs"])
@@ -211,6 +234,7 @@ def create_app() -> FastAPI:
     app.include_router(events_router)
     app.include_router(compat.router, prefix="/v1", tags=["openai-compat"])
     app.include_router(backup_router, prefix="/v1/backup", tags=["backup"])
+    app.include_router(discord_routes.router, prefix="/v1", tags=["discord"])
 
     @app.exception_handler(Exception)
     async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:

@@ -81,6 +81,9 @@ class Settings(BaseSettings):
     telegram_webhook_secret: str = ""
     telegram_mode: Literal["polling", "webhook"] = "polling"
 
+    # ── Discord ──────────────────────────────────────────────────────────────
+    discord_bot_token: str = ""
+
     # ── Filesystem ───────────────────────────────────────────────────────────
     conflux_home: str = "./.conflux"
     skills_dir: str = "./skills"

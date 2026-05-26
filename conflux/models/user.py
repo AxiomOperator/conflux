@@ -187,3 +187,24 @@ class TelegramLink(UUIDMixin, TimestampMixin, Base):
     )
 
     user: Mapped["User"] = relationship()
+
+
+class DiscordLink(UUIDMixin, TimestampMixin, Base):
+    """Maps a Discord user ID to a Conflux user (established via /link <api_key>)."""
+
+    __tablename__ = "discord_links"
+
+    discord_user_id: Mapped[int] = mapped_column(BigInteger, nullable=False, unique=True, index=True)
+    user_id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    linked_via_key_id: Mapped[UUID | None] = mapped_column(
+        PGUUID(as_uuid=True),
+        ForeignKey("api_keys.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
+    user: Mapped["User"] = relationship()
