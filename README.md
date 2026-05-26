@@ -1,6 +1,6 @@
 # Conflux
 
-> **Multi-user, self-learning AI Agent Harness** — v0.35.17
+> **Multi-user, self-learning AI Agent Harness** — v0.36.1
 
 Conflux is a production-grade AI orchestration platform. An autonomous orchestrator agent dynamically spawns and manages worker colonies, routes tasks to the best-fit LLM provider, and continuously improves its own skills through a five-layer adaptive learning system — all behind a polished web UI.
 
@@ -16,8 +16,10 @@ Conflux is a production-grade AI orchestration platform. An autonomous orchestra
 | 👥 | **Multi-user** — Azure AD / Microsoft Entra ID SSO, GitHub, Google, OIDC, email+password |
 | 📚 | **Knowledge Wiki** — hierarchical spaces, hybrid semantic+keyword search, automatic RAG injection |
 | 🛠️ | **MCP support** — connect any Model Context Protocol server to any agent |
-| 📅 | **Scheduled tasks** — natural-language cron scheduling with Telegram delivery |
+| 📅 | **Scheduled tasks** — natural-language cron scheduling, delivers to any channel |
 | 📧 | **AgentMail** — give agents a real email address (send, receive, reply) |
+| 💬 | **Discord bot** — first-class discord.py bot; @mention or DM triggers the full agent loop; slash commands, per-server routing, role ACL, emoji reactions |
+| 📱 | **Telegram bot** — inline keyboards, agent loop, conversation history |
 | 🔍 | **Admin observability** — request traces, audit trail, diagnostics, improvement pipeline |
 | 💾 | **Full system backup** — ZIP export of all PostgreSQL tables + Qdrant vector snapshots |
 
@@ -195,6 +197,35 @@ Models are assigned per-agent. The system also exposes an OpenAI-compatible prox
 
 ---
 
+## 💬 Messaging Channels
+
+Conflux runs full-featured bots — not just webhook relays. Every channel message routes through the same AgentLoop as the web UI.
+
+### Discord (v0.36)
+
+| Feature | Details |
+|---|---|
+| **Trigger** | @mention the bot in any channel, or DM it directly |
+| **Account linking** | `/link api_key:<key>` — pairs your Discord account to your Conflux user |
+| **Slash commands** | `/ask`, `/new`, `/me`, `/agents`, `/status`, `/unlink`, `/config` |
+| **Per-server routing** | Map any text channel to a specific agent via Admin → Discord Bot |
+| **Role ACL** | Restrict bot access to specific Discord roles per server |
+| **Thread mode** | Each conversation reply is threaded to the original message |
+| **Emoji reactions** | ⏳ on receipt → ✅ success / ❌ error |
+| **Voice transcription** | Audio messages transcribed via faster-whisper before agent processing |
+| **Admin UI** | Bot status, guild list, and per-guild config editor under Admin → Integrations → Discord |
+
+Set `discord_bot_token` in **Admin → System Settings** (Messaging category) to enable.
+
+### Telegram
+
+- Commands: `/start`, `/help`, `/new`, `/agents`, `/link <api_key>`
+- Inline keyboard navigation for agent selection
+- Full conversation history and streaming responses
+- Allowed user IDs configurable via Admin → System Settings (chip list)
+
+---
+
 ## 📚 Knowledge Wiki
 
 A full-featured wiki with agent RAG integration:
@@ -236,6 +267,7 @@ The login page dynamically shows only providers that are both configured and ena
 | **System Settings** | `/admin/settings` | Runtime config overrides (no restart needed): embeddings, search, voice, integrations |
 | **SSO Providers** | `/admin/sso` | Toggle auth providers, manage credentials users |
 | **AgentMail** | `/admin/agentmail` | Agent email inboxes, message threads |
+| **Discord Bot** | `/admin/discord` | Bot status, connected guilds, per-guild channel→agent routing and role ACL |
 | **Trajectories** | `/admin/trajectories` | Completed runs for fine-tuning — approve/reject + JSONL export |
 | **Backup & Restore** | `/admin/backup` | Full system ZIP (all PostgreSQL tables + Qdrant snapshots) or config-only JSON |
 | **View as User** | (header toggle) | Admins preview the UI exactly as a regular user sees it |
@@ -333,6 +365,7 @@ See `.env.example` for the full reference. Key variables:
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth credentials |
 | `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` / `OIDC_ISSUER` | Generic OIDC provider |
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token |
+| `DISCORD_BOT_TOKEN` | Discord bot token (or set via Admin → System Settings) |
 | `DATA_GUARD_ENABLED` | Block destructive tools in dev (default: `false`) |
 
 ---
