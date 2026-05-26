@@ -421,6 +421,18 @@ function ApiKeySection() {
           Once linked, every Telegram message will run through your full agent loop just like the web chat.
         </p>
       </div>
+
+      {/* Discord linking hint */}
+      <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-3 text-xs dark:border-indigo-900 dark:bg-indigo-950/40 space-y-1">
+        <p className="font-medium text-indigo-900 dark:text-indigo-200">💬 Link Discord</p>
+        <p className="text-indigo-800 dark:text-indigo-300">
+          To chat with your agent via Discord, create an API key above then use this slash command in any server where the Conflux bot is present:
+        </p>
+        <pre className="mt-1 rounded bg-indigo-100 px-2 py-1 font-mono text-indigo-900 dark:bg-indigo-900/40 dark:text-indigo-200">/link &lt;your-api-key&gt;</pre>
+        <p className="text-indigo-700 dark:text-indigo-400">
+          Once linked, use <code className="rounded bg-indigo-100 px-1 dark:bg-indigo-900/40">/ask</code> or @mention the bot to run your agent. Configure the bot in <a href="/admin/discord" className="underline">Admin → Discord Bot</a>.
+        </p>
+      </div>
     </div>
   );
 }

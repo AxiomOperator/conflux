@@ -132,6 +132,12 @@ export function DashboardShell({
             adminOnly: true,
           },
           {
+            href: "/admin/discord",
+            icon: MessageSquareIcon,
+            label: "Discord Bot",
+            adminOnly: true,
+          },
+          {
             href: "/admin/wiki",
             icon: BookLock,
             label: "Wiki Admin",

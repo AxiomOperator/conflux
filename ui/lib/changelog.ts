@@ -22,7 +22,89 @@ export interface ChangelogRelease {
 
 export const CHANGELOG: ChangelogRelease[] = [
   {
-    version: "0.35.17",
+    version: "0.36.0",
+    date: "2026-05-25",
+    title: "Full Discord Bot Integration",
+    summary:
+      "Conflux now ships a full first-class Discord bot — not just a webhook. Messages route through the same AgentLoop as the web UI, with per-server channel→agent routing, role-based access control, conversation threads, voice transcription, admin slash commands, and proactive notifications.",
+    entries: [
+      {
+        category: "feature",
+        description:
+          "Discord bot (discord.py) fully integrated: @mention or /ask triggers the AgentLoop with the same execution path as the web chat. Supports guild channel→agent routing, DMs, and thread-per-conversation mode.",
+      },
+      {
+        category: "feature",
+        description:
+          "Slash commands: /ask, /link, /unlink, /new, /me, /agents, /status — plus an admin /config group for role setup, channel→agent mapping, notification channel, and thread mode toggle.",
+      },
+      {
+        category: "feature",
+        description:
+          "Role-based access control: server admins configure which Discord roles can use the bot. Empty allowed-roles list means open access.",
+      },
+      {
+        category: "feature",
+        description:
+          "Voice/audio transcription: bot accepts .mp3/.ogg/.wav/.m4a attachments, transcribes via faster-whisper-server, then runs the transcript through the agent.",
+      },
+      {
+        category: "feature",
+        description:
+          "Proactive notifications: send_notification() helper allows any Conflux subsystem (scheduler, run hooks) to push embed messages to a guild's designated notification channel.",
+      },
+      {
+        category: "feature",
+        description:
+          "Admin UI: Discord Bot page under Admin → Integrations shows bot status, all connected guilds, and a per-guild config editor (channel mapping, roles, thread mode, notification channel).",
+      },
+      {
+        category: "added",
+        description:
+          "discord_bot_token system setting (Messaging category) — set token in Admin → System Settings to enable the bot.",
+      },
+      {
+        category: "added",
+        description:
+          "Settings page now shows a Link Discord hint with /link instructions alongside the existing Telegram hint.",
+      },
+    ],
+  },
+  {
+    version: "0.36.1",
+    date: "2026-05-25",
+    title: "Discord Bot Bug Fixes",
+    summary:
+      "Fixed several critical bugs preventing the Discord bot from working: API key lookup, Agent model field mismatches, missing DB column defaults, and improved message acknowledgment with emoji reactions.",
+    entries: [
+      {
+        category: "fixed",
+        description:
+          "/link command now correctly hashes the API key with pepper before lookup (APIKey.key_hash) — was previously querying a non-existent plain-text column, causing all link attempts to fail.",
+      },
+      {
+        category: "fixed",
+        description:
+          "Agent field references corrected: Agent.is_active → is_enabled, Agent.user_id → created_by, Agent.is_default removed (field does not exist). Fixes all @mention message processing.",
+      },
+      {
+        category: "fixed",
+        description:
+          "Migration 0025 added gen_random_uuid() server defaults to discord_links.id and discord_guild_configs.id — missing defaults caused all /link inserts to fail with a not-null constraint error.",
+      },
+      {
+        category: "improvement",
+        description:
+          "Bot now replies directly to the triggering message (Discord threaded reply) instead of sending a standalone message in the channel.",
+      },
+      {
+        category: "improvement",
+        description:
+          "Emoji reactions on the original message: ⏳ added immediately on receipt, swapped to ✅ on success or ❌ on error.",
+      },
+    ],
+  },
+  {
     date: "2026-05-25",
     title: "Full System Backup (PostgreSQL + Qdrant)",
     summary:
